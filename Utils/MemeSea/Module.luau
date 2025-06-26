@@ -111,16 +111,18 @@ local Module = {} do
   end
   
   function Module:PlayerClick()
-    local Char = Player.Character
-    if Char then
-      if Settings.AutoClick then
-        VirtualUser:CaptureController()
-        VirtualUser:Button1Down(Vector2.new(1e4, 1e4))
+    local Character = Player.Character
+    
+    if Character then
+      if Settings.AutoHaki and not Character:GetAttribute("Using_Aura") and self:AbilityUnlocked("Aura") then
+        OtherEvent.MainEvents.Ability:InvokeServer("Aura")
       end
-      if Settings.AutoHaki then
-        if self:AbilityUnlocked("Aura") and not Char:GetAttribute("Using_Aura")then
-          OtherEvent.MainEvents.Ability:InvokeServer("Aura")
-        end
+      
+      local Equipped = Character:FindFirstChildOfClass("Tool")
+      
+      if Equipped then
+        Equipped.Enabled = true
+        Equipped:Activate()
       end
     end
   end
