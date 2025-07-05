@@ -869,14 +869,26 @@ local Module = {} do
 		MaxPlayers = MaxPlayers or self.SH_MaxPlrs or 8
 		-- Region = Region or self.SH_Region or "Singapore"
 		
-		local ServerBrowser = ReplicatedStorage.__ServerBrowser
+		local ServerBrowser = ReplicatedStorage.__ServerBrowser -- o evento que gerência tudo relacionado a "servidores"
+		local InvokeServer = ServerBrowser.InvokeServer -- armazena a função de "InvokeServer" para otimizar
+		local MyJobId = game.JobId -- armazena o JobId do server atual, também para otimizar o loop
+		local CurrentPage = 1 -- a "página" atual de servidores ServerBrowser:InvokeServer(1. 2. 3...)
 		
-		for i = 1, 100 do
-			local Servers = ServerBrowser:InvokeServer(i)
-			for id,info in pairs(Servers) do
-				if id ~= game.JobId and info["Count"] <= MaxPlayers then
-					task.spawn(ServerBrowser.InvokeServer, ServerBrowser, "teleport", id)
+		while true do
+			local Servers = InvokeServer(ServerBrowser, CurrentPage) -- retorna a lista de servidores atuais
+			if not Servers then return end -- se nenhum servidor for encontrado, ele retorna e quebra o loop
+			CurrentPage += 1 -- avança para o próximo número da página
+			
+			local lowServerCount, lowServerId = MaxPlayers;
+			
+			for id, data in Servers do
+				if id ~= MyJobId and data.Count <= lowServerCount then
+					lowServerCount, lowServerId = data.Count, id;
 				end
+			end
+			
+			if lowServerId then
+				task.spawn(InvokeServer, ServerBrowser, "teleport", lowServerId)
 			end
 		end
 	end
