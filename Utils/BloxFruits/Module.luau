@@ -906,6 +906,7 @@ local Module = {} do
 	end
 	
 	function Module:ServerHop(MaxPlayers: number?, Region: string?): (nil)
+		self.RejoinBlocked = true -- bloqueia o Auto Rejoin
 		MaxPlayers = math.min(MaxPlayers or self.SH_MaxPlrs or 8, 11)
 		-- Region = Region or self.SH_Region or "Singapore"
 		
