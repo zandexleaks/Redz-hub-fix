@@ -2045,7 +2045,7 @@ local Module = {} do
         
         for i = 1, #_Characters do
           local Character = _Characters[i]
-          if Character == MyCharacter then continue end
+          if Character == MyCharacter or not CheckPlayerAlly(Character) then continue end
           local Humanoid = Character:FindFirstChildOfClass("Humanoid")
           local Hitbox = GetRandomHitboxLimb(Character)
 					
