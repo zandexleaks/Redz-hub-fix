@@ -55,24 +55,33 @@ local getupvalue: (any, number) -> any = getupvalue or (debug and debug.getupval
 local BRING_TAG: string = _ENV._Bring_Tag or `b{math.random(80, 2e4)}t`
 local KILLAURA_TAG: string = _ENV._KillAura_Tag or `k{math.random(120, 2e4)}t`
 
+local ServerOwnerId: IntValue = ReplicatedStorage:FindFirstChild("PrivateServerOwnerId")
+local IsPrivateServer: boolean = if ServerOwnerId then ServerOwnerId.Value ~= 0 else true
+
 local WaitSeconds = nil;
 
 local HIDDEN_SETTINGS: { [string]: any } = {
 	SKILL_COOLDOWN = 0.5,
 	CLEAR_AFTER = 50,
 	
-	SILENT_AIM_ENABLED = false,
+	SILENT_AIM_ENABLED = true,
 	WALKSPEED_BYPASS_ENABLED = true
 }
 
 _ENV._Bring_Tag = BRING_TAG
 _ENV._KillAura_Tag = KILLAURA_TAG
 
+local HitboxLimbs = {"RightLowerArm", "RightUpperArm", "LeftLowerArm", "LeftUpperArm", "RightHand", "LeftHand"};
+
 local function GetEnemyName(string: string): string
 	return (string:find("Lv. ") and string:gsub(" %pLv. %d+%p", "") or string):gsub(" %pBoss%p", "")
 end
 
 local function CheckPlayerAlly(__Player: Player): boolean
+	if __Player.Parent == Characters then
+		__Player = Players:GetPlayerFromCharacter(__Player)
+	end
+	
 	if tostring(__Player.Team) == "Marines" and __Player.Team == Player.Team then
 		return false
 	elseif __Player:HasTag(`Ally{Player.Name}`) or Player:HasTag(`Ally{__Player.Name}`) then
@@ -104,7 +113,7 @@ local function CreateNewClear()
 	return {
 		__newindex = function(self, index, value)
 			if COUNT_NEWINDEX >= HIDDEN_SETTINGS.CLEAR_AFTER then
-				for key, cache in pairs(self) do
+				for key, cache in self do
 					if typeof(cache) == "Instance" and not cache:IsDescendantOf(game) then
 						rawset(self, key, nil)
 					end
@@ -118,7 +127,7 @@ local function CreateNewClear()
 	}
 end
 
-function CreateDictionary(array: { string }, value: any?): { [string]: any? }
+function CreateDictionary(array: { string? }, value: any?): { [string]: any? }
 	local Dictionary = {}
 	
 	for _, string in ipairs(array) do
@@ -126,6 +135,46 @@ function CreateDictionary(array: { string }, value: any?): { [string]: any? }
 	end
 	
 	return Dictionary
+end
+
+local HumanoidsCache do
+	local Metatable = CreateNewClear()
+	Metatable.__index = function(self, Character)
+		local Humanoid = Character:FindFirstChild(if Character.Parent == SeaBeasts then "Health" else "Humanoid")
+		
+		if Humanoid then
+			self[Character] = Humanoid
+			return Humanoid
+		end
+	end
+	
+	HumanoidsCache = setmetatable({}, Metatable)
+end
+
+local function GetHuamnoidHealth(Humanoid)
+	return Humanoid[if Humanoid.ClassName == "Humanoid" then "Health" else "Value"]
+end
+
+local function IsAlive(Character, _Humanoid)
+	if _Humanoid then
+		return GetHuamnoidHealth(_Humanoid) > 0
+	elseif Character then
+		local Humanoid = HumanoidsCache[Character]
+		
+		if Humanoid then
+			return GetHuamnoidHealth(Humanoid) > 0
+		else
+			return Character.Parent == Boats
+		end
+	end
+end
+
+local function FireRemote(...)
+	return CommF:InvokeServer(...)
+end
+
+local function GetRandomHitboxLimb(Character)
+	return Character:FindFirstChild(HitboxLimbs[math.random(#HitboxLimbs)])
 end
 
 local Signal = {} do
@@ -232,7 +281,6 @@ local Module = {} do
 	local Cached = {
 		Closest = nil,
 		Equipped = nil,
-		Humanoids = setmetatable({}, CreateNewClear()),
 		RealFruitsName = setmetatable({}, CreateNewClear()),
 		RealFruitsId = setmetatable({}, CreateNewClear()),
 		Enemies = {}, -- setmetatable({}, CreateNewClear()),
@@ -241,18 +289,18 @@ local Module = {} do
 		Tools = {}
 	}
 	
+	local Debounces = {
+		TargetDebounce = 0,
+		UpdateDebounce = 0,
+		GetEnemy = 0,
+		Skills = {}
+	}
+	
 	Module.GameData = {
 		Sea = ({ [2753915549] = 1, [4442272183] = 2, [7449423635] = 3 })[game.PlaceId] or 0,
 		SeasName = { "Main", "Dressrosa", "Zou" },
 		MaxMastery = 600,
 		MaxLevel = 2650
-	}
-	
-	Module.Debounce = {
-		TargetDebounce = 0,
-		UpdateDebounce = 0,
-		GetEnemy = 0,
-		Skills = {}
 	}
 	
 	do
@@ -561,6 +609,9 @@ local Module = {} do
 		Module.SpawnLocations = {}
 		
 		Module.Cached = Cached
+		-- Module.Debounce = Debounce
+		Module.IsAlive = IsAlive
+		Module.FireRemote = FireRemote
 	end
 	
 	Module.Signals = {} do
@@ -577,9 +628,16 @@ local Module = {} do
 			_ENV.loadedFarm = false
 			_ENV.OnFarm = false
 			
+			local text = (`redz-Hub error [ {Settings.RunningOption or "Null"} ] {ErrorMessage}`)
+			
+			if _ENV.rz_error_message then
+				_ENV.rz_error_message.Text ..= `\n\n{ text }`
+				return nil
+			end
+			
 			local Message = Instance.new("Message", workspace)
-			_ENV.redz_hub_error = Message
-			Message.Text = (`redz-Hub error [ {Settings.RunningOption or "Null"} ] {ErrorMessage}`)
+			_ENV.rz_error_message = Message
+			Message.Text = text
 		end)
 	end
 	
@@ -753,8 +811,8 @@ local Module = {} do
 						local Method = Option.Function()
 						
 						if Method then
-							Settings.RunningMethod = type(Method) == "string" and Method
-							Enabled = true; break
+							Settings.RunningMethod, Enabled = type(Method) == "string" and Method, true;
+							break
 						else
 							Settings.RunningOption, Settings.RunningMethod = nil, nil
 						end
@@ -768,28 +826,6 @@ local Module = {} do
 		end
 	end
 	
-	function Module.FireRemote(...)
-		return CommF:InvokeServer(...)
-	end
-	
-	function Module.IsAlive(Character)
-		if Character then
-			local Humanoids = Cached.Humanoids
-			local Parent = Character.Parent
-			local Humanoid = Humanoids[Character] or Character:FindFirstChild(if Parent == SeaBeasts then "Health" else "Humanoid")
-			
-			if Humanoid then
-				if not Humanoids[Character] then
-					Humanoids[Character] = Humanoid
-				end
-				
-				return Humanoid[if Humanoid.ClassName == "Humanoid" then "Health" else "Value"] > 0
-			end
-			
-			return Parent == Boats
-		end
-	end
-	
 	function Module.KillAura(Distance: number?, Name: string?): (nil)
 		Distance = Distance or 500
 		
@@ -800,7 +836,7 @@ local Module = {} do
 			local PrimaryPart = Enemy.PrimaryPart
 			
 			if (not Name or Enemy.Name == Name) and PrimaryPart and not Enemy:HasTag(KILLAURA_TAG) then
-				if Module.IsAlive(Enemy) and Player:DistanceFromCharacter(PrimaryPart.Position) < Distance then
+				if IsAlive(Enemy) and Player:DistanceFromCharacter(PrimaryPart.Position) < Distance then
 					Enemy:AddTag(KILLAURA_TAG)
 				end
 			end
@@ -837,36 +873,40 @@ local Module = {} do
 				if Mastery and not Mastery[Skill] then continue end
 				if Mastery and Level < Mastery[Skill] then continue end
 				
-				local Debounce = Module.Debounce.Skills[Skill]
+				local Debounce = Debounces.Skills[Skill]
 				
 				if Enabled and (not Debounce or (tick() - Debounce) >= HIDDEN_SETTINGS.SKILL_COOLDOWN) then
 					VirtualInputManager:SendKeyEvent(true, Skill, false, game)
 					VirtualInputManager:SendKeyEvent(false, Skill, false, game)
-					Module.Debounce.Skills[Skill] = tick()
+					Debounces.Skills[Skill] = tick()
 				end
 			end
 		end
 	end
 	
 	function Module.Rejoin(): (nil)
-		task.spawn(TeleportService.TeleportToPlaceInstance, TeleportService, game.PlaceId, game.JobId, Player)
+		if IsPrivateServer or #Players:GetPlayers() == 1 then
+			TeleportService:Teleport(game.PlaceId, Player)
+		else
+			TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Player)
+		end
 	end
 	
 	function Module.EnemySpawned(EnemyName)
 		local Enemies = Module.Enemies
 		return if type(EnemyName) == "table" then Enemies:GetClosest(EnemyName) else Enemies:GetEnemyByTag(EnemyName)
 	end
-  
+	
 	function Module:IsBlacklistedExecutor(): boolean
 		return if IS_BLACKLISTED_EXECUTOR then true else false
 	end
 	
 	function Module:TravelTo(Sea: number?): (nil)
-		Module.FireRemote(`Travel{self.GameData.SeasName[Sea]}`)
+		return FireRemote(`Travel{ self.GameData.SeasName[Sea] }`)
 	end
 	
 	function Module:ServerHop(MaxPlayers: number?, Region: string?): (nil)
-		MaxPlayers = MaxPlayers or self.SH_MaxPlrs or 8
+		MaxPlayers = math.min(MaxPlayers or self.SH_MaxPlrs or 8, 11)
 		-- Region = Region or self.SH_Region or "Singapore"
 		
 		local ServerBrowser = ReplicatedStorage.__ServerBrowser -- o evento que gerência tudo relacionado a "servidores"
@@ -875,11 +915,11 @@ local Module = {} do
 		local CurrentPage = 1 -- a "página" atual de servidores ServerBrowser:InvokeServer(1. 2. 3...)
 		
 		while true do
-			local Servers = InvokeServer(ServerBrowser, CurrentPage) -- retorna a lista de servidores atuais
+			local Servers = InvokeServer(ServerBrowser, CurrentPage) -- retorna a lista de servidores da página atual
 			if not Servers then return end -- se nenhum servidor for encontrado, ele retorna e quebra o loop
 			CurrentPage += 1 -- avança para o próximo número da página
 			
-			local lowServerCount, lowServerId = MaxPlayers;
+			local lowServerCount, lowServerId = MaxPlayers, 11;
 			
 			for id, data in Servers do
 				if id ~= MyJobId and data.Count <= lowServerCount then
@@ -888,7 +928,7 @@ local Module = {} do
 			end
 			
 			if lowServerId then
-				task.spawn(InvokeServer, ServerBrowser, "teleport", lowServerId)
+				task.spawn(TeleportService.TeleportToPlaceInstance, TeleportService, game.PlaceId, lowServerId, Player)
 			end
 		end
 	end
@@ -897,7 +937,7 @@ local Module = {} do
 		ByType = if not ToolName then true else ByType
 		ToolName = ToolName or Settings.FarmTool
 		
-		if not Module.IsAlive(Player.Character) then
+		if not IsAlive(Player.Character) then
 			return nil
 		end
 		
@@ -908,9 +948,10 @@ local Module = {} do
 				Equipped:SetAttribute("Locks", nil)
 			end
 			
-			if Equipped.Parent == Player.Backpack then
+			if Equipped.Parent == Player.Character then
+				return nil
+			elseif Equipped.Parent == Player.Backpack then
 				Player.Character.Humanoid:EquipTool(Equipped)
-			elseif Equipped.Parent == Player.Character then
 				return nil
 			end
 		end
@@ -934,7 +975,7 @@ local Module = {} do
 	end
 	
 	function Module:BringEnemies(ToEnemy: Instance, SuperBring: boolean?): (nil)
-		if not self.IsAlive(ToEnemy) or not ToEnemy.PrimaryPart then
+		if not IsAlive(ToEnemy) or not ToEnemy.PrimaryPart then
 			return nil
 		end
 		
@@ -961,7 +1002,7 @@ local Module = {} do
 				if not Enemy:FindFirstChild("CharacterReady") then continue end
 				
 				local PrimaryPart = Enemy.PrimaryPart
-				if self.IsAlive(Enemy) and PrimaryPart then
+				if IsAlive(Enemy) and PrimaryPart then
 					if (Position - PrimaryPart.Position).Magnitude < Settings.BringDistance then
 						Enemy.Humanoid.WalkSpeed = 0
 						Enemy.Humanoid.JumpPower = 0
@@ -994,27 +1035,19 @@ local Module = {} do
 		end
 	end
 	
-	function Module:GetProgress(Tag, ...)
-		local Progress = Cached.Progress
-		local entry = Progress[Tag]
+	function Module.GetProgress(...)
+		local progressTag = ...
+		local progressCache = Cached.Progress
+		local entry = progressCache[progressTag]
 		
-		if entry and (tick() - entry.debounce) < 2 then
-			return entry.result
+		if entry and (tick() - entry.debounce) >= 2 then
+			entry.result, entry.debounce = table.pack(FireRemote(...)), tick()
+		elseif not entry then
+			entry = { result = table.pack(FireRemote(...)), debounce = tick() }
+			progressCache[progressTag] = entry
 		end
 		
-		local result = self.FireRemote(...)
-		
-		if entry then
-			entry.result = result
-			entry.debounce = tick()
-		else
-			Progress[Tag] = {
-				debounce = tick(),
-				result = result
-			}
-		end
-		
-		return result
+		return unpack(entry.result)
 	end
 	
 	function Module:RemoveVolcanoLava()
@@ -1153,7 +1186,6 @@ local Module = {} do
 		}, {})
 		
 		local Signals = Module.Signals
-		local IsAlive = Module.IsAlive
 		local SeaCastle = CFrame.new(-5556, 314, -2988)
 		
 		local TagsMobs = {
@@ -1181,7 +1213,8 @@ local Module = {} do
 			if Humanoid and Humanoid.Health > 0 then
 				table.insert(list, NewEnemy)
 				Humanoid.Died:Wait()
-				table.remove(list, table.find(list, NewEnemy))
+				local index = table.find(list, NewEnemy)
+				if index then table.remove(list, index) end
 			end
 		end
 		
@@ -1440,7 +1473,7 @@ local Module = {} do
 		
 		task.spawn(function()
 			table.insert(Connections, CommE.OnClientEvent:Connect(OnClientEvent))
-			for _, item in ipairs(Module.FireRemote("getInventory")) do Inventory:UpdateItem(item) end
+			for _, item in ipairs(FireRemote("getInventory")) do Inventory:UpdateItem(item) end
 		end)
 		
 		return Inventory
@@ -1474,8 +1507,7 @@ local Module = {} do
 				["Bazooka"] = "Position",
 				["Cannon"] = "Position",
 				["Dragonstorm"] = "Overheat"
-			},
-			HitboxLimbs = {"RightLowerArm", "RightUpperArm", "LeftLowerArm", "LeftUpperArm", "RightHand", "LeftHand"}
+			}
 		}
 		
 		local RE_RegisterAttack = Net:WaitForChild("RE/RegisterAttack")
@@ -1509,8 +1541,6 @@ local Module = {} do
 			end
 		end)
 		
-		local IsAlive = Module.IsAlive
-		
 		FastAttack.ShootsFunctions = {
 			["Skull Guitar"] = function(self: FastAttack, Equipped: Tool, Position: Vector3)
 				Equipped.RemoteEvent:FireServer("TAP", Position) -- Events.ShootSoulGuitar:Invoke(Position)
@@ -1522,6 +1552,19 @@ local Module = {} do
 				Enemies[i][2].Size = Vector3.one * 50
 				Enemies[i][2].Transparency = 1
 			end
+		end
+		
+		local function CheckStun(ToolTip: string, Character: Character, Humanoid: Humanoid): boolean
+			-- local Stun = Character:FindFirstChild("Stun")
+			local Busy = Character:FindFirstChild("Busy")
+			
+			if Humanoid.Sit and (ToolTip == "Sword" or ToolTip == "Melee" or ToolTip == "Gun") then
+				return false
+			-- elseif Stun and Stun.Value > 0 then {{ or Busy and Busy.Value }}
+			--	 return false
+			end
+			
+			return true
 		end
 		
 		function FastAttack:ShootInTarget(TargetPosition: Vector3): (nil)
@@ -1557,47 +1600,37 @@ local Module = {} do
 			end
 		end
 		
-		function FastAttack:CheckStun(ToolTip: string, Character: Character, Humanoid: Humanoid): boolean
-			local Stun = Character:FindFirstChild("Stun")
-			local Busy = Character:FindFirstChild("Busy")
-			
-			if Humanoid.Sit and (ToolTip == "Sword" or ToolTip == "Melee" or ToolTip == "Gun") then
-				return false
-			-- elseif Stun and Stun.Value > 0 then {{ or Busy and Busy.Value }}
-			--	 return false
+		function FastAttack:NewBladeHit(BladeHits: table, Hitbox: BasePart, Character: Model): (nil)
+			if self.PrimaryBladeHit then
+				table.insert(BladeHits, { Character, Hitbox })
+			else
+				self.PrimaryBladeHit = Hitbox
 			end
-			
-			return true
 		end
 		
-		function FastAttack:Process(assert: boolean, Enemies: Folder, BladeHits: table, Position: Vector3, Distance: number): (nil)
+		function FastAttack:Process(assert: boolean, List: Folder, BladeHits: table, MyPosition: Vector3, Distance: number): (nil)
 			if not assert then return end
 			
-			local HitboxLimbs = self.HitboxLimbs
-			local Mobs = Enemies:GetChildren()
+			local MyCharacter = Player.Character;
+			local Targets = List:GetChildren();
 			
-			for i = 1, #Mobs do
-				local Enemy = Mobs[i]
-				local BasePart = Enemy:FindFirstChild(HitboxLimbs[math.random(#HitboxLimbs)]) or Enemy.PrimaryPart
+			for i = 1, #Targets do
+				local Character = Targets[i]
+				if Character == MyCharacter or not IsAlive(Character) then continue end
+				local RootPart = Character.Humanoid.RootPart
 				
-				if not BasePart then continue end
-				
-				local CanAttack = Enemy.Parent == Characters and CheckPlayerAlly(Players:GetPlayerFromCharacter(Enemy))
-				
-				if Enemy ~= Player.Character and (Enemy.Parent ~= Characters or CanAttack) then
-					if IsAlive(Enemy) and (Position - BasePart.Position).Magnitude <= Distance then
-						if not self.EnemyRootPart then
-							self.EnemyRootPart = BasePart
-						else
-							table.insert(BladeHits, { Enemy, BasePart })
-						end
+				if RootPart and (Character.Parent ~= Characters or CheckPlayerAlly(Character)) then
+					local Hitbox = GetRandomHitboxLimb(Character)
+					
+					if Hitbox and (MyPosition - RootPart.Position).Magnitude <= Distance then
+						self:NewBladeHit(BladeHits, Hitbox, Character)
 					end
 				end
 			end
 		end
 		
 		function FastAttack:GetAllBladeHits(Character: Character, Distance: number?): (nil)
-			local Position = Character:GetPivot().Position
+			local Position = Character.Humanoid.RootPart.Position
 			local BladeHits = {}
 			Distance = Distance or self.Distance
 			
@@ -1649,24 +1682,23 @@ local Module = {} do
 		function FastAttack:UseFruitM1(Character: Character, Equipped: Tool, Combo: number): (nil)
 			if self.UsingM1 then return end
 			
-			local M1Active = Equipped:FindFirstChild("M1Active")
-			local Position = Character:GetPivot().Position
-			local EnemyList = Enemies:GetChildren()
+			local MyPosition = Character.Humanoid.RootPart.Position
+			local _Enemies = Enemies:GetChildren()
 			
-			for i = 1, #EnemyList do
-				local Enemy = EnemyList[i]
-				local PrimaryPart = Enemy.PrimaryPart
-				if IsAlive(Enemy) and PrimaryPart and (PrimaryPart.Position - Position).Magnitude <= 50 then
-					local Direction = (PrimaryPart.Position - Position).Unit
-					Equipped.LeftClickRemote:FireServer(Direction, Combo)
+			for i = 1, #_Enemies do
+				local Enemy = _Enemies[i]
+				local RootPart = IsAlive(Enemy) and Enemy.Humanoid.RootPart
+				
+				if RootPart and (RootPart.Position - MyPosition).Magnitude <= 50 then
+					Equipped.LeftClickRemote:FireServer((RootPart.Position - MyPosition).Unit, Combo)
 				end
 			end
 		end
 		
 		function FastAttack:UseNormalClick(Humanoid: Humanoid, Character: Character, Cooldown: number): (nil)
-			self.EnemyRootPart = nil
+			self.PrimaryBladeHit = nil
 			local BladeHits = self:GetAllBladeHits(Character)
-			local EnemyHitBox = self.EnemyRootPart
+			local EnemyHitBox = self.PrimaryBladeHit
 			
 			if EnemyHitBox then
 				if SUCCESS_FLAGS and COMBAT_REMOTE_THREAD and HIT_FUNCTION then
@@ -1789,6 +1821,8 @@ local Module = {} do
 			local Character = Player.Character
 			local Humanoid = Character.Humanoid
 			
+			if not Humanoid.RootPart then return end
+			
 			local Equipped = Character:FindFirstChildOfClass("Tool")
 			local ToolTip = Equipped and Equipped.ToolTip
 			local ToolName = Equipped and Equipped.Name
@@ -1799,7 +1833,7 @@ local Module = {} do
 			
 			local Cooldown = Equipped:FindFirstChild("Cooldown") and Equipped.Cooldown.Value or 0.3
 			
-			if (tick() - self.Debounce) >= Cooldown and self:CheckStun(ToolTip, Character, Humanoid) then
+			if (tick() - self.Debounce) >= Cooldown and CheckStun(ToolTip, Character, Humanoid) then
 				local Combo = self:GetCombo()
 				Cooldown += if Combo >= 4 then 0.05 else 0
 				
@@ -1859,7 +1893,6 @@ local Module = {} do
 		
 		_ENV.tween_bodyvelocity = BodyVelocity
 		
-		local IsAlive = Module.IsAlive
 		local IsCustomTag = false
 		
 		local BaseParts, CanCollideObjects, CanTouchObjects = {}, {}, {} do
@@ -1937,13 +1970,13 @@ local Module = {} do
 		end
 		
 		local function UpdateVelocityOnStepped(Character)
-			local RootPart = Character and Character:FindFirstChild("UpperTorso")
-			local Humanoid = Character and Character:FindFirstChild("Humanoid")
+			local BasePart = Character:FindFirstChild("UpperTorso")
+			local Humanoid = Character:FindFirstChild("Humanoid")
 			local BodyVelocity = _ENV.tween_bodyvelocity
 			
-			if _ENV.OnFarm and RootPart and Humanoid and Humanoid.Health > 0 then
-				if BodyVelocity.Parent ~= RootPart then
-					BodyVelocity.Parent = RootPart
+			if _ENV.OnFarm and BasePart and Humanoid and Humanoid.Health > 0 then
+				if BodyVelocity.Parent ~= BasePart then
+					BodyVelocity.Parent = BasePart
 				end
 			else
 				if BodyVelocity.Parent then
@@ -1958,8 +1991,10 @@ local Module = {} do
 		
 		table.insert(Connections, Stepped:Connect(function()
 			local Character = Player.Character
-			UpdateVelocityOnStepped(Character)
-			NoClipOnStepped(Character)
+			if IsAlive(Character) then
+				UpdateVelocityOnStepped(Character)
+				NoClipOnStepped(Character)
+			end
 		end))
 		
 		return BodyVelocity
@@ -1967,166 +2002,148 @@ local Module = {} do
 	
 	Module.Hooking = (function()
 		local Hooking = {
-			Skills = CreateDictionary({ "Z", "X", "C", "V", "F" }, true),
-			ClosestsEnemies = {}
+			Skills = CreateDictionary({ "Z", "X", "C", "V", "F" }, true)
 		}
 		
-		local Enabled = _ENV.rz_EnabledOptions
-		local Debounce = Module.Debounce
-		local IsAlive = Module.IsAlive
+		local Enabled = _ENV.rz_EnabledOptions;
+		local ClosestEnemie = nil;
 		
-		local function GetNextTarget(Mode: string, ClosestList: boolean): any?
-			if (tick() - Debounce.TargetDebounce) <= 2 or _ENV[Mode] then
-				return if ClosestList then Hooking.ClosestsEnemies else Hooking.ClosestsEnemies.Closest
+		local DisableUpdateClosest = 0;
+		local UpdateClosestsDebounce = 0;
+		local CharacterBasePartName = "RightLowerArm";
+		
+		local function _GetCurrentTarget(Tag: string): any?
+			if (tick() - DisableUpdateClosest) <= 2 or _ENV[Tag] then
+				return ClosestEnemie
 			end
 		end
-		
-		function Hooking:EnableBypass()
-			if _ENV.enabled_bypass or not HIDDEN_SETTINGS.SILENT_AIM_ENABLED then
-			  return nil
-			end
-			
-			_ENV.enabled_bypass = true
-			
-			local old_newindex; old_newindex = hookmetamethod(Player, "__newindex", function(self, index, value)
-				if tostring(self) == "Humanoid" and index == "WalkSpeed" then
-					return old_newindex(self, "WalkSpeed", _ENV.WalkSpeedBypass or value)
+    
+    local function UpdateClosests()
+      local SmoothUpdateCooldown = if Settings.SmoothMode then 0.5 else 0.25
+      local time = tick()
+      
+      if ClosestEnemie and not ClosestEnemie.Parent then
+      	ClosestEnemie.Parent = nil
+      end
+      
+      if (time - DisableUpdateClosest) <= 2 or (time - UpdateClosestsDebounce) <= SmoothUpdateCooldown then
+        return nil
+      else
+        UpdateClosestsDebounce = time
+      end
+      
+      local MyCharacter = Player.Character
+      local Equipped = MyCharacter and MyCharacter:FindFirstChildOfClass("Tool")
+      
+      if Equipped and Equipped.ToolTip and MyCharacter.Humanoid.RootPart then
+        local ClosestDistance = if Equipped.ToolTip == "Gun" then 180 else 900
+        
+        local MyPosition = MyCharacter.Humanoid.RootPart.Position
+        local _Characters = Characters:GetChildren()
+        local _Enemies = Enemies:GetChildren()
+        
+        for i = 1, #_Characters do
+          local Character = _Characters[i]
+          if Character == MyCharacter then continue end
+          local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+          local Hitbox = GetRandomHitboxLimb(Character)
+					
+					if Hitbox and IsAlive(_, Humanoid) and Humanoid.RootPart then
+						local Magnitude = (Humanoid.RootPart.Position - MyPosition).Magnitude
+						
+						if Magnitude <= ClosestDistance then
+							ClosestEnemie, ClosestDistance = Hitbox, Magnitude
+						end
+          end
+        end
+        
+				for i = 1, (if Settings.NoAimMobs then 0 else #_Enemies) do
+          local Mob = _Enemies[i]
+          local Humanoid = Mob:FindFirstChildOfClass("Humanoid")
+          local Hitbox = GetRandomHitboxLimb(Mob)
+					
+					if Hitbox and IsAlive(_, Humanoid) and Humanoid.RootPart then
+						local Magnitude = (Humanoid.RootPart.Position - MyPosition).Magnitude
+						
+						if Magnitude <= ClosestDistance then
+							ClosestEnemie, ClosestDistance = Hitbox, Magnitude
+						end
+					end
 				end
-				return old_newindex(self, index, value)
+			end
+    end
+  	
+		function Hooking:EnableBypass()
+			if _ENV.rz_enabled_bypass or not HIDDEN_SETTINGS.WALKSPEED_BYPASS_ENABLED then return end
+			_ENV.rz_enabled_bypass = true
+			
+			local old_newindex;
+			old_newindex = hookmetamethod(Player, "__newindex", function(self, index, value)
+				if self.Name == "Humanoid" and index == "WalkSpeed" then
+					return old_newindex(self, "WalkSpeed", _ENV.WalkSpeedBypass or value)
+				else
+					return old_newindex(self, index, value)
+				end
 			end)
 		end
 		
-		function Hooking:SetTarget(RootPart: BasePart, Character: Model?, IsEnemy: boolean?): (nil)
-			table.clear(self.ClosestsEnemies)
-			self.ClosestsEnemies.Closest = RootPart
-			Debounce.TargetDebounce = tick()
-			
-			if IsEnemy then
-				for _, Enemy in ipairs(Module.Enemies:GetTagged(Character.Name)) do
-					if Enemy ~= Character and Enemy:FindFirstChild("UpperTorso") then
-						table.insert(self.ClosestsEnemies, Enemy.UpperTorso)
-					end
-				end
-			end
+		function Hooking:SetTarget(RootPart: BasePart): (nil)
+			ClosestEnemie, DisableUpdateClosest = GetRandomHitboxLimb(RootPart.Parent) or RootPart, tick()
 		end
 		
-		function Hooking.UpdateClosests()
-			local SmoothDebounce = Settings.SmoothMode and 0.5 or 0.25
+		task.delay(2.5, function()
+			if not HIDDEN_SETTINGS.SILENT_AIM_ENABLED then return end
+			if _ENV.rz_original_namecall then return end
+			table.insert(Connections, Stepped:Connect(UpdateClosests))
 			
-			if (tick() - Debounce.TargetDebounce) <= 2 or (tick() - Debounce.UpdateDebounce) <= SmoothDebounce then
-				return nil
-			end
-			
-			Debounce.UpdateDebounce = tick()
-			local Equipped = IsAlive(Player.Character) and Player.Character:FindFirstChildOfClass("Tool")
-			
-			if Equipped and Equipped.ToolTip then
-				local ClosestsEnemies = Hooking.ClosestsEnemies
-				table.clear(ClosestsEnemies)
-				
-				local Position = Player.Character:GetPivot().Position
-				
-				local Players = Players:GetPlayers()
-				local Enemies = Enemies:GetChildren()
-				
-				local Distance = if Equipped.ToolTip == "Gun" then 120 else 900
-				local ClosestsDistance = if Equipped.ToolTip == "Gun" then 120 else 60
-				
-				for i = 1, #Players do
-					local __Player = Players[i]
-					local Character = __Player.Character
-					
-					if Player ~= __Player and CheckPlayerAlly(__Player) and IsAlive(Character) then
-						local UpperTorso = Character:FindFirstChild("UpperTorso")
-						local Magnitude = UpperTorso and (UpperTorso.Position - Position).Magnitude
-						
-						if UpperTorso and Magnitude <= ClosestsDistance then
-							table.insert(ClosestsEnemies, UpperTorso)
-						end
-						if UpperTorso and Magnitude <= Distance then
-							ClosestsEnemies.Closest = UpperTorso
-							Distance = if UpperTorso then Magnitude else Distance
-						end
-					end
-				end
-				
-				if Settings.NoAimMobs then
-					return nil
-				end
-				
-				for i = 1, #Enemies do
-					local Enemy = Enemies[i]
-					local UpperTorso = Enemy and Enemy:FindFirstChild("UpperTorso")
-					
-					if UpperTorso and IsAlive(Enemy) then
-						local Magnitude = (UpperTorso.Position - Position).Magnitude
-						
-						if Magnitude <= ClosestsDistance then
-							table.insert(ClosestsEnemies, UpperTorso)
-						end
-						if Magnitude <= Distance then
-							Distance, ClosestsEnemies.Closest = Magnitude, UpperTorso
-						end
-					end
-				end
-			end
-		end
-		
-		task.delay(5, function()
-			if _ENV.original_namecall or not HIDDEN_SETTINGS.WALKSPEED_BYPASS_ENABLED then
-				return nil
-			end
-			
-			local old_namecall; old_namecall = hookmetamethod(game, "__namecall", function(self, ...)
-				if string.lower(getnamecallmethod()) ~= "fireserver" then
-					return old_namecall(self, ...)
-				end
-				
-				local Name = self.Name
-				
-				if Name == "RE/ShootGunEvent" then
+			local Events = {
+				["RE/ShootGunEvent"] = function(...)
 					local Position, Enemies = ...
 					
-					if typeof(Position) == "Vector3" and type(Enemies) == "table" then
-						local ClosestList = GetNextTarget("AimBot_Gun", true)
+					if typeof(Position) == "Vector3" and type(Enemies) == "table" and #Enemies ~= 0 then
+						local ClosestMob = _GetCurrentTarget("AimBot_Gun")
 						
-						if ClosestList and #ClosestList > 0 then
-							for i = 1, #ClosestList do
-								local BasePart = ClosestList[i]
-								
-								if BasePart and (not Enemies[1] or (BasePart.Position - Enemies[1].Position).Magnitude <= 15) then
-									table.insert(Enemies, BasePart)
-								end
-							end
-							
-							return old_namecall(self, Enemies[1].Position, Enemies)
+						if ClosestMob then
+							return ClosestMob.Position, { ClosestMob }
 						end
 					end
-				elseif Name == "RemoteEvent" then
-					local v1, v2 = ...
 					
-					if typeof(v1) == "Vector3" and not v2 then
-						local Target = GetNextTarget("AimBot_Skills")
+					return ...
+				end,
+				["RemoteEvent"] = function(...)
+					local param1, param2 = ...
+					
+					if typeof(param1) == "Vector3" and not param2 then
+						local Target = _GetCurrentTarget("AimBot_Skills")
 						
 						if Target then
-							return old_namecall(self, Target.Position)
+							return Target.Position
 						end
-					elseif v1 == "TAP" and typeof(v2) == "Vector3" then
-						local Target = GetNextTarget("AimBot_Tap")
+					elseif param1 == "TAP" and typeof(v2) == "Vector3" then
+						local Target = _GetCurrentTarget("AimBot_Tap")
 						
 						if Target then
-							return old_namecall(self, "TAP", Target.Position)
+							return "TAP", Target.Position
 						end
 					end
+					
+					return ...
 				end
+			}
+			
+			local old_namecall;
+			old_namecall = hookmetamethod(game, "__namecall", function(self, ...)
+				local Event = Events[self.Name]
 				
-				return old_namecall(self, ...)
+				if Event and string.lower(getnamecallmethod()) == "fireserver" then
+					return old_namecall(self, Event(...))
+				else
+					return old_namecall(self, ...)
+				end
 			end)
 			
-			_ENV.original_namecall = old_namecall
+			_ENV.rz_original_namecall = old_namecall
 		end)
-		
-		table.insert(Connections, Heartbeat:Connect(Hooking.UpdateClosests))
 		
 		return Hooking
 	end)()
@@ -2145,7 +2162,7 @@ local Module = {} do
 	
 	task.defer(function()
 		local OwnersId = { 3095250, 17884881 }
-		local OwnersFriends = {}
+		local OwnersFriends = CreateDictionary({ 6079649301, 4985647299 }, true)
 		
 		local LocalPlayer = Player
 		
@@ -2153,7 +2170,52 @@ local Module = {} do
 			["Triple Dark Blade"] = true
 		}
 		
+		local BlacklistedAttributes = {"GANKS", "GANKSVolley", "AAIM"}
+		
+		local MaxLevel = Module.GameData.MaxLevel
+		local CurrentSea = Module.GameData.Sea
+		local MaxBounty = 3e7 + 250000
+		
+		local VerificationSteps = {
+			(function(Player)
+				if table.find(OwnersId, Player.UserId) then
+					return true
+				elseif OwnersFriends[Player.UserId] then
+					return true
+				end
+			end),
+			(function(Player, Data)
+				if Data.Level.Value > MaxLevel then
+					return true
+				elseif Data.Beli.Value >= 3e8 and Data.Level.Value <= 700 then
+					return true
+				end
+			end),
+			(function(Player, Data)
+				if CurrentSea > 1 and Data.Level.Value < 700 then
+					return true
+				elseif CurrentSea > 2 and Data.Level.Value < 1500 then
+					return true
+				end
+			end),
+			(function(Player)
+				for i = 1, #BlacklistedAttributes do
+					if Player:GetAttribute(BlacklistedAttributes[i]) then
+						return true
+					end
+				end
+			end),
+			(function(Player)
+				local BountyHonor = Player:WaitForChild("leaderstats"):WaitForChild("Bounty/Honor")
+				
+				if BountyHonor.Value > MaxBounty or BountyHonor.Value < 0 then
+					return true
+				end
+			end)
+		}
+		
 		local function PossibleStaff(Player)
+			Module.RejoinBlocked = true
 			return LocalPlayer:Kick(`{ Player.DisplayName }/@{ Player.Name } maybe it's a blox fruits admin`)
 		end
 		
@@ -2161,32 +2223,17 @@ local Module = {} do
 			if Player == LocalPlayer then return end
 			
 			local Data = Player:WaitForChild("Data", 30)
-			local Level = Data:WaitForChild("Level", 10)
-			local Beli = Data:WaitForChild("Beli", 10)
 			
-			if Level.Value > Module.GameData.MaxLevel then
-				return PossibleStaff(Player)
-			elseif Beli.Value >= 3e8 and Level.Value <= 700 then
-				return PossibleStaff(Player)
-			elseif OwnersFriends[Player.UserId] then
-				return PossibleStaff(Player)
-			end
-			
-			if Level.Value < 700 and Module.GameData.Sea > 1 then
-				return PossibleStaff(Player)
-			elseif Level.Value < 1500 and Module.GameData.Sea > 2 then
-				return PossibleStaff(Player)
-			end
-			
-			if Player:GetAttribute("GANKS") or Player:GetAttribute("GANKSVolley") or Player:GetAttribute("AAIM") then
-				return PossibleStaff(Player)
-			end
-			
-			local BountyHonor = Player:WaitForChild("leaderstats"):WaitForChild("Bounty/Honor")
-			local MaxBountyHonor = 3e7 + 250000
-			
-			if BountyHonor.Value >= MaxBountyHonor or BountyHonor.Value < 0 then
-				return PossibleStaff(Player)
+			if Data then
+				Data:WaitForChild("Level", 10)
+				Data:WaitForChild("Beli", 10)
+				
+				for i = 1, #VerificationSteps do
+					local success, isStaff = pcall(VerificationSteps[i], Player, Data)
+					if success and isStaff then
+						return PossibleStaff(Player)
+					end
+				end
 			end
 		end
 		
@@ -2195,8 +2242,8 @@ local Module = {} do
 			for _, Player in ipairs(Players:GetPlayers()) do task.defer(StaffCheck, Player) end
 		end)
 		
-		for i = 1, #OwnersId do
-			local FriendsPages = Players:GetFriendsAsync(OwnersId[i])
+		for _, OwnerId in ipairs(OwnersId) do
+			local FriendsPages = Players:GetFriendsAsync(OwnerId)
 			
 			while not FriendsPages.IsFinished do
 				local FriendsList = FriendsPages:GetCurrentPage()
@@ -2245,62 +2292,67 @@ local Module = {} do
 	end)
 end
 
-function EnableBuso()
-	local Character = Player.Character
-	local IsAlive = Module.IsAlive(Character)
+do
+	local ToolsCache = Module.Cached.Tools
 	
-	if Settings.AutoBuso and IsAlive and not Character:FindFirstChild("HasBuso") then
-		if Character:HasTag("Buso") then
-			Module.FireRemote("Buso")
-		elseif Money.Value >= 25e3 then
-			Module.FireRemote("BuyHaki", "Buso")
+	local function BuyBuso()
+		if Money.Value >= 25e3 then
+			FireRemote("BuyHaki", "Buso")
 		end
 	end
-end
-
-function GetToolByName(Name)
-	local Cached = Module.Cached.Tools[Name]
 	
-	if Cached and (Cached.Parent == Player.Character or Cached.Parent == Player.Backpack) then
-		return Cached
+	local function FindFirstType(Tip)
+		local Equipped = Player.Character:FindFirstChildOfClass("Tool")
+		
+		if Equipped and Equipped.ToolTip == Tip then
+			return Equipped
+		end
+		
+		for _, Tool in Player.Backpack:GetChildren() do
+			if Tool:IsA("Tool") and Tool.ToolTip == Tip then
+				return Tool
+			end
+		end
 	end
 	
-	if Player.Character then
-		local HasTool = Player.Character:FindFirstChild(Name) or Player.Backpack:FindFirstChild(Name)
+	function EnableBuso()
+		if Settings.AutoBuso then
+			local Character = Player.Character
+			if IsAlive(Character) and not Character:FindFirstChild("HasBuso") then
+				return if Character:HasTag("Buso") then FireRemote("Buso") else BuyBuso()
+			end
+		end
+	end
+	
+	function GetTool(Name: string, ByType: boolean?): Tool?
+		local Character = Player.Character
+		if not IsAlive(Character) then return end
+		
+		local CacheTag = if ByType then `toolTip_{Name}` else Name
+		local Cache = ToolsCache[CacheTag]
+		
+		if Cache and (Cache.Parent == Character or Cache.Parent == Player.Backpack) then
+			return Cache
+		end
+		
+		local HasTool = if ByType then FindFirstType(Name) else (Character:FindFirstChild(Name) or Player.Backpack:FindFirstChild(Name))
 		
 		if HasTool then
-			Module.Cached.Tools[Name] = HasTool
+			ToolsCache[CacheTag] = HasTool
 			return HasTool
 		end
 	end
-end
-
-function GetToolMastery(Name)
-	local HasTool = GetToolByName(Name)
-	return HasTool and HasTool:GetAttribute("Level") or 0
-end
-
-function GetToolTip(ToolTip, Folder)
-	for _, Tool in Folder:GetChildren() do
-		if Tool:IsA("Tool") and Tool.ToolTip == ToolTip then
-			Module.Cached.Tools[`ToolTip_{ToolTip}`] = Tool
-			return Tool
-		end
-	end
-end
-
-function VerifyToolTip(ToolTip)
-	local Cached = Module.Cached.Tools[`ToolTip_{ToolTip}`]
 	
-	if Cached and (Cached.Parent == Player.Character or Cached.Parent == Player.Backpack) then
-		return Cached
+	function GetToolMastery(Name: string): number
+		local HasTool = GetTool(Name)
+		return HasTool and HasTool:GetAttribute("Level") or 0
 	end
 	
-	local Character = Module.IsAlive(Player.Character) and Player.Character
+	function VerifyToolTip(Tip: string): boolean
+		return if GetTool(Tip, true) then true else false
+	end
 	
-	return GetToolTip(ToolTip, Player.Backpack) or Character and GetToolTip(ToolTip, Character)
-end
-
-function VerifyTool(Name)
-	return if GetToolByName(Name) then true else false
+	function VerifyTool(Name: string): boolean
+		return if GetTool(Name) then true else false
+	end
 end
