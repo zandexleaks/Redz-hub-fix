@@ -1617,7 +1617,7 @@ local Module = {} do
 			
 			for i = 1, #Targets do
 				local Character = Targets[i]
-				if Character == MyCharacter or not IsAlive(Character) then continue end
+				if Character == MyCharacter or Character:GetAttribute("IsBoat") or not IsAlive(Character) then continue end
 				local RootPart = Character.PrimaryPart
 				
 				if RootPart and (Character.Parent ~= Characters or CheckPlayerAlly(Character)) then
@@ -1688,7 +1688,7 @@ local Module = {} do
 			
 			for i = 1, #_Enemies do
 				local Enemy = _Enemies[i]
-				local RootPart = IsAlive(Enemy) and Enemy.Humanoid.RootPart
+				local RootPart = IsAlive(Enemy) and Enemy.PrimaryPart
 				
 				if RootPart and (RootPart.Position - MyPosition).Magnitude <= 50 then
 					Equipped.LeftClickRemote:FireServer((RootPart.Position - MyPosition).Unit, Combo)
