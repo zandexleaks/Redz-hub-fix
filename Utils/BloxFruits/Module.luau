@@ -1621,7 +1621,7 @@ local Module = {} do
 				local RootPart = Character.Humanoid.RootPart
 				
 				if RootPart and (Character.Parent ~= Characters or CheckPlayerAlly(Character)) then
-					local Hitbox = GetRandomHitboxLimb(Character)
+					local Hitbox = GetRandomHitboxLimb(Character) or RootPart
 					
 					if Hitbox and (MyPosition - RootPart.Position).Magnitude <= Distance then
 						self:NewBladeHit(BladeHits, Hitbox, Character)
