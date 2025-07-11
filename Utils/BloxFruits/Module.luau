@@ -1618,7 +1618,7 @@ local Module = {} do
 			for i = 1, #Targets do
 				local Character = Targets[i]
 				if Character == MyCharacter or not IsAlive(Character) then continue end
-				local RootPart = Character.Humanoid.RootPart
+				local RootPart = Character.PrimaryPart
 				
 				if RootPart and (Character.Parent ~= Characters or CheckPlayerAlly(Character)) then
 					local Hitbox = GetRandomHitboxLimb(Character) or RootPart
