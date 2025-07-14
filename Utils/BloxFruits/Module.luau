@@ -2080,7 +2080,7 @@ local Module = {} do
 			
 			local old_newindex;
 			old_newindex = hookmetamethod(Player, "__newindex", function(self, index, value)
-				if self.Name == "Humanoid" and index == "WalkSpeed" then
+				if index == "WalkSpeed" and self.Name == "Humanoid" then
 					return old_newindex(self, "WalkSpeed", _ENV.WalkSpeedBypass or value)
 				else
 					return old_newindex(self, index, value)
