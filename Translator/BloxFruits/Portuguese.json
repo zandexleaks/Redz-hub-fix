@@ -40,6 +40,7 @@
   
   "Boat Tween Speed": ["Velocidade do Barco", "Ajustar a velocidade do barco"],
   "Teleport to NPC": ["Teleportar para NPC", "Ir até o NPC selecionado"],
+  "Collect Mirage Chests": ["Coletar Baús da Miragem", "Coleta todos os baús da ilha da miragem"],
   "Look To Moon": ["Olhar para a Lua", "Olhar para a lua para fazer ela brilhar"],
   "Auto Finish Trial": ["Concluir Trial Automático", "Completar Trial da sua raça Automaticamente"],
   
@@ -91,6 +92,8 @@
   "Auto Pole V1": ["Auto Pole V1", "Derrotar Thunder God até obter Pole V1"],
   "Auto Saw Sword": ["Auto Saw Sword", "Derrotar The Saw até obter Shark Saw"],
   
+  "Auto Mastery all Swords": ["Maestria máxima em todas as espadas", "pegar maestria máxima em todas as espadas desbloqueadas"],
+  
   "Fruits": "Frutas",
   "Auto Store Fruits": ["Auto Armazenar Frutas", "Guardar frutas no seu Inventário"],
   "Teleport To Fruits": ["Auto Coletar Frutas", "Coletar frutas que estão no mapa"],
@@ -104,11 +107,11 @@
   "Islands": "Ilhas",
   "Islands Stats": "Ilhas Spawnadas",
   "Auto Craft Volcanic Magnet": ["Criar Volcanic Magnet", "Coleta os Materiais e Cria o Volcanic Magnet"],
-  "Auto Prehistoric Island": ["Auto Ilha Pré-Histórica", "Farmar recursos na ilha"],
-  "Auto Kill Lava Golem": ["Matar Golem de Lava", "Derrotar Golem de Lava com 'Kill Aura'"],
-  "Auto Collect Dinosaur Bones": ["Coletar Ossos", "Coletar ossos Após terminar ilha Pré-Histórica"],
-  "Auto Collect Dragon Egg": ["Coletar Ovo do Dragão", "Coletar ovo do Dragão"],
-  "Reset after finishing": ["Resetar após terminar", "Reseta o personagem após terminar a Prehistoric Island"],
+  "Fully Prehistoric Island": ["Fully Prehistoric Island", "Faz tudo do evento da ilha Pré-histórica"],
+  "Teleport to Prehistoric Island": ["Teleportar para a ilha Pré-histórica", "Teleporta para a ilha Pré-história"],
+  "Ignore Collect Bones [ Fully ]": ["Ignorar Ossos [ Fully ]", "não coleta os Ossos"],
+  "Ignore Collect Dragon Egg [ Fully ]": ["Ignorar Ovo do Dragão [ Fully ]", "não coleta o Ovo do Dragão"],
+  "Reset character after Finishing [ Fully ]": ["Resetar após terminar [ Fully ]", "Reseta o personagem após terminar a Ilha Pré-histórica"],
   
   "Kitsune Island": "Ilha Kitsune",
   "Trade Azure Ember Amount": ["Quantida da troca", "Definir quantidade para troca de Azure Ember"],
@@ -128,14 +131,34 @@
   "Teleport to Island": "Teleportar para a ilha",
   "Teleport to Temple of Time": "Teleportar para Templo do Tempo",
   
+  "Esp Size": "Tamanho do ESP",
+  "ESP My Boat": ["ESP Meu Barco", "Mostra onde está o seu Barco no mapa"],
   "ESP Players": ["ESP Jogadores", "Exibir jogadores no mapa"],
   "ESP Fruits": ["ESP Frutas", "Exibir frutas no mapa"],
   "ESP Islands": ["ESP Ilhas", "Exibir ilhas no mapa"],
   "ESP Chests": ["ESP Baús", "Exibir Baús disponíveis para Coletar"],
   "ESP Berries": ["ESP Berries", "Exibir Berries que já estão disponíveis para Coletar"],
   
+  "Meteor Rain": "Chuva de Meteoros",
+  "Remove Portal Dash Cooldown": "Remover Cooldown do Dash da Portal",
+  "Enable Roblox Emote Menu": "Habilitar Menu de Emotes do Roblox",
+  
   "Execute Clipboard": ["Executar do Clipboard", "Executar script copiado"],
   "Redeem all Codes": ["Resgatar Todos os Códigos", "Coletar recompensas de códigos disponíveis"],
+  
+  "Start Server Hopping": "Iniciar salto entre Servidores",
+  "Options [ Priority Order > ]": "Opções [ Orden de Prioridade > ]",
+  "Don't hop if has \"Fist of Darkness\"": "Não trocar de servidor se Possuir \"Fist of Darkness\"",
+  "Don't hop if has \"God's Chalice\"": "Não trocar de servidor se Possuir \"God's Chalice\"",
+  "Don't hop if has \"Hellfire Torch\"": "Não trocar de servidor se Possuir \"Hellfire Torch\"",
+  "Elite Hunter Quest": ["Derrotar Elite Boss", "Completa a missão do Elite Hunter se Algum Elite Boss estiver spawnado."],
+  "Pirates Sea": ["Completar Raid Pirata", "Completa a Raid Pirata que acontece no Castelo do Mar."],
+	"Complete Factory": ["Completar Factory", "Destrói o núcleo da fábrica para ganhar uma fruta aleatória."],
+	"Collect Fruits": ["Coletar Frutas", "Coleta frutas naturais ou frutas dropadas por outros Jogadores."],
+	"Collect Berries": ["Coletar Bagas", "Coleta todas as Bagas(Berries) espalhadas pelo o mapa."],
+	"Collect Chests": ["Coletar Baús", "Coleta 25 baús antes de trocar de Servidor."],
+	"Defeat Cursed Captain": ["Derrotar Cursed Captain", "Derrota o Cursed Captain se ele estiver spawnado."],
+	"Complete Raids": ["Completar Raids", "Complete raids using fruits that cannot be stored."],
   
   "Rejoin Server": ["Reentrar no Servidor", "Reentrar no servidor Atual"],
   "Server Hop": ["Trocar de Servidor", "Entrar em um servidor diferente"],
@@ -203,5 +226,7 @@
   "Race V4": "Raça V4",
   "Enemies": "Inimigos",
   "Frags": "Fragmentos",
-  "Accessories": "Acessórios"
+  "Accessories": "Acessórios",
+  "Fighting Style": "Estilo de Luta",
+  "Mastery": "Maestria"
 }
