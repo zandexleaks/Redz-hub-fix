@@ -803,22 +803,30 @@ local Module = {} do
 		
 		Module.RunFunctions.FarmQueue = function(Options)
 			local Success, ErrorMessage = pcall(function()
-				while task.wait(Settings.SmoothMode and 0.25 or 0) do
-					local Enabled = false
-					
+				local function GetQueue()
 					for _, Option in Options do
 						Settings.RunningOption = Option.Name
 						local Method = Option.Function()
 						
 						if Method then
-							Settings.RunningMethod, Enabled = type(Method) == "string" and Method, true;
-							break
-						else
-							Settings.RunningOption, Settings.RunningMethod = nil, nil
+							if type(Method) == "string" then
+								Settings.RunningMethod = Method
+							end
+							return Method
 						end
 					end
 					
-					_ENV.OnFarm = (_ENV.teleporting or Enabled)
+					Settings.RunningOption, Settings.RunningMethod = nil, nil
+				end
+				
+				while task.wait(Settings.SmoothMode and 0.25 or 0) do
+					if Settings.FixOverflow then
+						local Success, Response = pcall(GetQueue)
+						
+						_ENV.OnFarm = (not Success and _ENV.OnFarm) or Response
+					else
+						_ENV.OnFarm = if GetQueue() then true else false
+					end
 				end
 			end)
 			
