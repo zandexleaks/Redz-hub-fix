@@ -929,10 +929,16 @@ local Module = {} do
 			if not Success then return end
 			if not Servers then Blocked = true return nil end -- se nenhum servidor for encontrado, ele retorna e quebra o loop
 			
+			local lowServerCount, lowServerId = MaxPlayers;
+			
 			for id, data in Servers do
-				if id ~= MyJobId and data.Count <= MaxPlayers then
-					task.spawn(TeleportService.TeleportToPlaceInstance, TeleportService, game.PlaceId, id, Player)
+				if id ~= MyJobId and data.Count <= lowServerCount then
+					lowServerCount, lowServerId = data.Count, id
 				end
+			end
+			
+			if lowServerId then
+				TeleportService:TeleportToPlaceInstance(game.PlaceId, lowServerId, Player)
 			end
 		end
 		
