@@ -918,32 +918,25 @@ local Module = {} do
 		MaxPlayers = math.min(MaxPlayers or self.SH_MaxPlrs or 8, 11)
 		-- Region = Region or self.SH_Region or "Singapore"
 		
-		local ServerBrowser = ReplicatedStorage.__ServerBrowser -- o evento que gerência tudo relacionado a "servidores"
-		local InvokeServer = ServerBrowser.InvokeServer -- armazena a função de "InvokeServer" para otimizar
-		local MyJobId = game.JobId -- armazena o JobId do server atual, também para otimizar o loop
-		local CurrentPage = 1 -- a "página" atual de servidores ServerBrowser:InvokeServer(1. 2. 3...)
+		local ServerBrowser = ReplicatedStorage.__ServerBrowser; -- o evento que gerência tudo relacionado a "servidores"
+		local InvokeServer = ServerBrowser.InvokeServer; -- armazena a função de "InvokeServer" para otimizar
+		local MyJobId = game.JobId; -- armazena o JobId do server atual, também para otimizar o loop
+		local CurrentPage = 1; -- a "página" atual de servidores ServerBrowser:InvokeServer(1. 2. 3...)
+		local Blocked = false;
 		
 		local function forEachPage(Page)
-			local Servers = InvokeServer(ServerBrowser, CurrentPage) -- retorna a lista de servidores da página atual
-			if not Servers then -- se nenhum servidor for encontrado, ele retorna e quebra o loop
-				Blocked = true
-				return nil
-			end
-			
-			local lowServerCount, lowServerId = MaxPlayers, 11;
+			local Success, Servers = pcall(InvokeServer, ServerBrowser, Page) -- retorna a lista de servidores da página atual
+			if not Success then return end
+			if not Servers then Blocked = true return nil end -- se nenhum servidor for encontrado, ele retorna e quebra o loop
 			
 			for id, data in Servers do
-				if id ~= MyJobId and data.Count <= lowServerCount then
-					lowServerCount, lowServerId = data.Count, id;
+				if id ~= MyJobId and data.Count <= MaxPlayers then
+					task.spawn(TeleportService.TeleportToPlaceInstance, TeleportService, game.PlaceId, id, Player)
 				end
-			end
-			
-			if lowServerId then
-				task.spawn(TeleportService.TeleportToPlaceInstance, TeleportService, game.PlaceId, lowServerId, Player)
 			end
 		end
 		
-		while not Blocked and CurrentPage < 250 do
+		while not Blocked and CurrentPage < 150 do
 			task.spawn(forEachPage, CurrentPage)
 			CurrentPage += 1 -- avança para o próximo número da página
 			task.wait()
