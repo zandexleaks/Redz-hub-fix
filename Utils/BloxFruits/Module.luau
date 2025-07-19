@@ -923,10 +923,12 @@ local Module = {} do
 		local MyJobId = game.JobId -- armazena o JobId do server atual, também para otimizar o loop
 		local CurrentPage = 1 -- a "página" atual de servidores ServerBrowser:InvokeServer(1. 2. 3...)
 		
-		while true do
+		local function forEachPage(Page)
 			local Servers = InvokeServer(ServerBrowser, CurrentPage) -- retorna a lista de servidores da página atual
-			if not Servers then return end -- se nenhum servidor for encontrado, ele retorna e quebra o loop
-			CurrentPage += 1 -- avança para o próximo número da página
+			if not Servers then -- se nenhum servidor for encontrado, ele retorna e quebra o loop
+				Blocked = true
+				return nil
+			end
 			
 			local lowServerCount, lowServerId = MaxPlayers, 11;
 			
@@ -939,6 +941,12 @@ local Module = {} do
 			if lowServerId then
 				task.spawn(TeleportService.TeleportToPlaceInstance, TeleportService, game.PlaceId, lowServerId, Player)
 			end
+		end
+		
+		while not Blocked and CurrentPage < 250 do
+			task.spawn(forEachPage, CurrentPage)
+			CurrentPage += 1 -- avança para o próximo número da página
+			task.wait()
 		end
 	end
 	
