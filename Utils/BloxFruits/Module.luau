@@ -820,7 +820,9 @@ local Module = {} do
 				end
 				
 				while task.wait(Settings.SmoothMode and 0.25 or 0) do
-					if Settings.FixOverflow then
+					if _ENV.teleporting then
+						_ENV.OnFarm = true
+					elseif Settings.FixOverflow then
 						local Success, Response = pcall(GetQueue)
 						
 						_ENV.OnFarm = (not Success and _ENV.OnFarm) or Response
