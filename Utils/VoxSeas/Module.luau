@@ -143,7 +143,7 @@ local function BringMobs(BaseMob: Model): (nil)
 		if Enemy:GetAttribute("OriginalName") ~= OriginalName then continue end;
 		local RootPart = Enemy:FindFirstChild("HumanoidRootPart");
 		
-		if RootPart and (BringPosition - RootPart.Position) <= Settings.BringDistance then
+		if RootPart and (BringPosition - RootPart.Position).Magnitude <= Settings.BringDistance then
 			if not RootPart:FindFirstChild("BodyVelocity") then
 				local BV = Instance.new("BodyVelocity", RootPart)
 				BV.Velocity = Vector3.zero;
@@ -158,7 +158,7 @@ local function BringMobs(BaseMob: Model): (nil)
 end
 
 local function CanAttackMob(Enemy: Model): boolean
-	return if Enemy:GetAttribute("Respawned") and Enemy:GetAttribute("Ready") then true else false
+	return (Enemy:GetAttribute("Respawned") and Enemy:GetAttribute("Ready")) or false
 end
 
 local function MobNameIs(Enemy: Model, Name: string): boolean
@@ -184,14 +184,14 @@ local function GetEnemyByName(Name: string): Model?
 		for _, Enemy in Folder:GetChildren() do
 			if not MobNameIs(Enemy, Name) then continue end
 			
-			EnemiesFolders[Name] = Folder
-			return GetMobFromFolder(Enemy, Name)
+			MobsFolders[Name] = Folder
+			return GetMobFromFolder(Folder, Name)
 		end
 	end
 end
 
 local function IsSelectedTool(Tool: Tool): unknown
-	return Tool:GetAttribute(Settings.SelectedTool);
+	return Tool:GetAttribute(`{Settings.SelectedTool}Type`);
 end
 
 local function EquipTool(): Tool?
