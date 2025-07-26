@@ -573,8 +573,8 @@ do
 	end
 	
 	do
-		-- ConfigTab:AddToggle({"Bring Mobs", false, {Settings, "BringMobs"} })
-		ConfigTab:AddSlider({"Tween Speed", 50, 200, 10, 125, {Settings, "TweenSpeed"} })
-		ConfigTab:AddDropdown({"Select Tool", {"Combat"}, "Combat", {Settings, "SelectedTool"} })
+		-- SettingsTab:AddToggle({"Bring Mobs", false, {Settings, "BringMobs"} })
+		SettingsTab:AddSlider({"Tween Speed", 50, 200, 10, 125, {Settings, "TweenSpeed"} })
+		SettingsTab:AddDropdown({"Select Tool", {"Combat"}, "Combat", {Settings, "SelectedTool"} })
 	end
 end
