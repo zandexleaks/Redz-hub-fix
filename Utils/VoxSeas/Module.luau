@@ -18,7 +18,7 @@ local MobsFolders = {};
 
 Module.RunFunctions = {} do
 	local function ShowErrorMessage(ErrorMessage)
-		_ENV.loadedFarm = fals
+		_ENV.loadedFarm = false
 		_ENV.OnFarm = false
 		
 		local text = (`redz-Hub error [ { Settings.RunningOption or "Null" } ] { ErrorMessage }`)
