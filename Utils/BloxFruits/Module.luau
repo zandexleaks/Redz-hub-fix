@@ -613,7 +613,19 @@ local Module = {} do
 		Module.IsAlive = IsAlive;
 		Module.FireRemote = FireRemote;
 		
-		Module.SuperFastAttack = true;
+		Module.SuperFastAttack = (function()
+			local SplitVersion = string.split(string.sub(require(ReplicatedStorage.BuildInfo).VERSION, 2, -1), ".")
+			local CurrentVersion = `{ SplitVersion[1] or 0 }.`;
+			
+			for i = 2, #SplitVersion do
+				CurrentVersion ..= tostring(SplitVersion[i] or 0)
+			end
+			
+			CurrentVersion = tonumber(CurrentVersion) or 0
+			
+			local SeaMaxVersion = ({26.61, 26.61, 26.61})[Module.GameData.Sea]
+			return CurrentVersion <= SeaMaxVersion
+		end)()
 	end
 	
 	Module.Signals = {} do
@@ -2285,8 +2297,9 @@ local Module = {} do
 			for _, Player in ipairs(Players:GetPlayers()) do task.defer(StaffCheck, Player) end
 		end)
 		
-		for _, OwnerId in ipairs(OwnersId) do
+		for _, OwnerId in OwnersId do
 			local FriendsPages = Players:GetFriendsAsync(OwnerId)
+			if not FriendsPages then task.wait(5) continue end
 			
 			while not FriendsPages.IsFinished do
 				local FriendsList = FriendsPages:GetCurrentPage()
