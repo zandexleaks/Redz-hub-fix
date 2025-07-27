@@ -1729,14 +1729,17 @@ local Module = {} do
 		
 		function FastAttack:SuperFastAttack(EnemyHitBox, BladeHits)
 			if Module.SuperFastAttack and Settings.FastAttack then
+				local Enemy = EnemyHitBox.Parent
+				local Times = if Enemy:GetAttribute("IsBoss") or Enemy:GetAttribute("RaidBoss") then 20 else 6
+				
 				self.Debounce = tick() + 9e9;
 				local Overheat = 0;
 				
 				table.insert(BladeHits, { EnemyHitBox.Parent, EnemyHitBox })
 				table.insert(BladeHits, EnemyHitBox)
 				
-				while Overheat <= 1 do
-					for i = 1, 3 do
+				while Overheat <= 0.5 do
+					for i = 1, Times do
 						task.spawn(RE_RegisterAttack.FireServer, RE_RegisterAttack)
 						task.spawn(HIT_FUNCTION, EnemyHitBox, BladeHits)
 					end
