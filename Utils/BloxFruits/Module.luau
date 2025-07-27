@@ -595,23 +595,25 @@ local Module = {} do
 	end
 	
 	do
-		Module.IsSuperBring = false
+		Module.IsSuperBring = false;
 		
-		Module.RemoveCanTouch = 0
-		Module.AttackCooldown = 0
-		Module.PirateRaid = 0
+		Module.RemoveCanTouch = 0;
+		Module.AttackCooldown = 0;
+		Module.PirateRaid = 0;
 		
-		Module.Webhooks = true
-		Module.JobIds = true
+		Module.Webhooks = true;
+		Module.JobIds = true;
 		
-		Module.Progress = {}
-		Module.EnemyLocations = {}
-		Module.SpawnLocations = {}
+		Module.Progress = {};
+		Module.EnemyLocations = {};
+		Module.SpawnLocations = {};
 		
-		Module.Cached = Cached
+		Module.Cached = Cached;
 		-- Module.Debounce = Debounce
-		Module.IsAlive = IsAlive
-		Module.FireRemote = FireRemote
+		Module.IsAlive = IsAlive;
+		Module.FireRemote = FireRemote;
+		
+		Module.SuperFastAttack = true;
 	end
 	
 	Module.Signals = {} do
@@ -1713,6 +1715,27 @@ local Module = {} do
 			end
 		end
 		
+		function FastAttack:SuperFastAttack(EnemyHitBox, BladeHits)
+			if Module.SuperFastAttack and Settings.FastAttack then
+				self.Debounce = tick() + 9e9;
+				local Overheat = 0;
+				
+				table.insert(BladeHits, { EnemyHitBox.Parent, EnemyHitBox })
+				table.insert(BladeHits, EnemyHitBox)
+				
+				while Overheat <= 1 do
+					for i = 1, 3 do
+						task.spawn(RE_RegisterAttack.FireServer, RE_RegisterAttack)
+						task.spawn(HIT_FUNCTION, EnemyHitBox, BladeHits)
+					end
+					Overheat += task.wait()
+				end
+				
+				self.Debounce = 0;
+				return true;
+			end
+		end
+		
 		function FastAttack:UseNormalClick(Humanoid: Humanoid, Character: Character, Cooldown: number): (nil)
 			self.PrimaryBladeHit = nil
 			local BladeHits = self:GetAllBladeHits(Character)
@@ -1720,8 +1743,10 @@ local Module = {} do
 			
 			if EnemyHitBox then
 				if SUCCESS_FLAGS and COMBAT_REMOTE_THREAD and HIT_FUNCTION then
-					RE_RegisterAttack:FireServer(Cooldown)
-					HIT_FUNCTION(EnemyHitBox, BladeHits)
+					if not self:SuperFastAttack(EnemyHitBox, BladeHits) then
+						RE_RegisterAttack:FireServer(Cooldown)
+						HIT_FUNCTION(EnemyHitBox, BladeHits)
+					end
 				elseif SUCCESS_FLAGS and not COMBAT_REMOTE_THREAD then
 					RE_RegisterAttack:FireServer(Cooldown)
 					RE_RegisterHit:FireServer(EnemyHitBox, BladeHits)
@@ -1849,7 +1874,7 @@ local Module = {} do
 				return nil
 			end
 			
-			local Cooldown = Equipped:FindFirstChild("Cooldown") and Equipped.Cooldown.Value or 0.3
+			local Cooldown = Equipped:FindFirstChild("Cooldown") and Equipped.Cooldown.Value or 0.3;
 			
 			if (tick() - self.Debounce) >= Cooldown and CheckStun(ToolTip, Character, Humanoid) then
 				local Combo = self:GetCombo()
