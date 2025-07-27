@@ -1738,12 +1738,12 @@ local Module = {} do
 				table.insert(BladeHits, { EnemyHitBox.Parent, EnemyHitBox })
 				table.insert(BladeHits, EnemyHitBox)
 				
-				while Overheat <= 0.5 do
+				while Overheat <= 0.6 do
 					for i = 1, Times do
 						task.spawn(RE_RegisterAttack.FireServer, RE_RegisterAttack)
 						task.spawn(HIT_FUNCTION, EnemyHitBox, BladeHits)
 					end
-					Overheat += task.wait()
+					Overheat += task.wait(0.15)
 				end
 				
 				self.Debounce = 0;
