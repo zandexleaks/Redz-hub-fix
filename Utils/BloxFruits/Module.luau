@@ -1730,7 +1730,7 @@ local Module = {} do
 		function FastAttack:SuperFastAttack(EnemyHitBox, BladeHits)
 			if Module.SuperFastAttack and Settings.FastAttack then
 				local Enemy = EnemyHitBox.Parent
-				local Times = if Enemy:GetAttribute("IsBoss") or Enemy:GetAttribute("RaidBoss") then 20 else 6
+				local Times = if Enemy:GetAttribute("IsBoss") then 25 elseif Enemy:GetAttribute("RaidBoss") then 40 else 6
 				
 				self.Debounce = tick() + 9e9;
 				local Overheat = 0;
