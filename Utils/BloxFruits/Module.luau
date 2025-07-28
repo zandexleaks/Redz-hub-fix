@@ -2125,9 +2125,9 @@ local Module = {} do
 					end
 				end
 			end
-    end
-  	
-		function Hooking:EnableBypass()
+		end
+		
+		local function hook_newindex()
 			if _ENV.rz_enabled_bypass or not HIDDEN_SETTINGS.WALKSPEED_BYPASS_ENABLED then return end
 			_ENV.rz_enabled_bypass = true
 			
@@ -2141,13 +2141,10 @@ local Module = {} do
 			end)
 		end
 		
-		function Hooking:SetTarget(RootPart: BasePart): (nil)
-			ClosestEnemie, DisableUpdateClosest = GetRandomHitboxLimb(RootPart.Parent) or RootPart, tick()
-		end
-		
-		task.delay(2.5, function()
+		local function hook_namecall()
 			if not HIDDEN_SETTINGS.SILENT_AIM_ENABLED then return end
 			if _ENV.rz_original_namecall then return end
+			
 			table.insert(Connections, Stepped:Connect(UpdateClosests))
 			
 			local Events = {
@@ -2197,7 +2194,18 @@ local Module = {} do
 			end)
 			
 			_ENV.rz_original_namecall = old_namecall
-		end)
+		end
+		
+		Module.HookGame = function()
+			task.delay(1, hook_newindex)
+			task.delay(1, hook_namecall)
+		end
+		
+		function Hooking:SetTarget(RootPart: BasePart): (nil)
+			ClosestEnemie, DisableUpdateClosest = GetRandomHitboxLimb(RootPart.Parent) or RootPart, tick()
+		end
+		
+		Hooking.EnableBypass = function()end;
 		
 		return Hooking
 	end)()
