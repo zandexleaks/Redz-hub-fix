@@ -1008,7 +1008,7 @@ local Module = {} do
 		end
 	end
 	
-	function Module:BringEnemies(ToEnemy: Instance, SuperBring: boolean?): (nil)
+	function Module:BringEnemies(ToEnemy: Instance, SuperBring: boolean?, CustomCFrame: CFrame): (nil)
 		if not IsAlive(ToEnemy) or not ToEnemy.PrimaryPart then
 			return nil
 		end
@@ -1020,8 +1020,8 @@ local Module = {} do
 			
 			local Name = ToEnemy.Name
 			local Position = (Player.Character or Player.CharacterAdded:Wait()):GetPivot().Position
-			local Target = ToEnemy.PrimaryPart.CFrame
 			local BringPositionTag = if SuperBring then "ALL_MOBS" else Name
+			local Target = CustomCFrame or ToEnemy.PrimaryPart.CFrame
 			
 			if not Cached.Bring[BringPositionTag] or (Target.Position - Cached.Bring[BringPositionTag].Position).Magnitude > 25 then
 				Cached.Bring[BringPositionTag] = Target
