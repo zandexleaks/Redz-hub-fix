@@ -297,11 +297,24 @@ local Module = {} do
 	}
 	
 	Module.GameData = {
-		Sea = ({ [2753915549] = 1, [4442272183] = 2, [7449423635] = 3 })[game.PlaceId] or 0,
-		SeasName = { "Main", "Dressrosa", "Zou" },
-		MaxMastery = 600,
-		MaxLevel = 2650
+		Sea = ({ [2753915549] = 1, [4442272183] = 2, [7449423635] = 3 })[game.PlaceId] or 0;
+		SeasName = { "Main", "Dressrosa", "Zou" };
+		MaxMastery = 600;
+		MaxLevel = 2650;
+		
+		StringVersion = require(ReplicatedStorage.BuildInfo).VERSION;
 	}
+	
+	Module.GameData.NumberVersion = (function()
+		local SplitVersion = string.split(string.sub(Module.GameData.StringVersion, 2, -1), ".")
+		local CurrentVersion = `{ SplitVersion[1] or 0 }.`;
+		
+		for i = 2, #SplitVersion do
+			CurrentVersion ..= tostring(SplitVersion[i] or 0)
+		end
+		
+		return tonumber(CurrentVersion) or 0
+	end)()
 	
 	do
 		Module.FruitsId = {
@@ -613,19 +626,8 @@ local Module = {} do
 		Module.IsAlive = IsAlive;
 		Module.FireRemote = FireRemote;
 		
-		Module.SuperFastAttack = (function()
-			local SplitVersion = string.split(string.sub(require(ReplicatedStorage.BuildInfo).VERSION, 2, -1), ".")
-			local CurrentVersion = `{ SplitVersion[1] or 0 }.`;
-			
-			for i = 2, #SplitVersion do
-				CurrentVersion ..= tostring(SplitVersion[i] or 0)
-			end
-			
-			CurrentVersion = tonumber(CurrentVersion) or 0
-			
-			local SeaMaxVersion = ({26.61, 26.61, 26.61})[Module.GameData.Sea]
-			return CurrentVersion <= SeaMaxVersion
-		end)()
+		local SeaMaxVersion = ({26.61, 26.61, 26.61})[Module.GameData.Sea];
+		Module.SuperFastAttack = Module.GameData.NumberVersion <= SeaMaxVersion;
 	end
 	
 	Module.Signals = {} do
