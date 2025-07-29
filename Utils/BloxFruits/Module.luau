@@ -1507,7 +1507,16 @@ local Module = {} do
 		
 		task.spawn(function()
 			table.insert(Connections, CommE.OnClientEvent:Connect(OnClientEvent))
-			for _, item in ipairs(FireRemote("getInventory")) do Inventory:UpdateItem(item) end
+			local InventoryItems = nil;
+			
+			repeat
+				task.wait(1)
+				InventoryItems = FireRemote("getInventory")
+			until type(InventoryItems) == "table"
+			
+			for index = 1, #InventoryItems do
+				Inventory:UpdateItem(InventoryItems[index])
+			end
 		end)
 		
 		return Inventory
@@ -1529,7 +1538,7 @@ local Module = {} do
 					MaxOverheat = 3,
 					Cooldown = 0,
 					TotalOverheat = 0,
-					Distance = 350,
+					Distance = 400,
 					Shooting = false
 				}
 			},
@@ -1612,6 +1621,40 @@ local Module = {} do
 			table.insert(CurrentBladeHits, { Character, RootPart })
 		end
 		
+		local function ProcessSeaEventsHits(Distance)
+			for _, SeaBeast in SeaBeasts:GetChildren() do
+				local BasePart = SeaBeast:FindFirstChildOfClass("MeshPart")
+				
+				if IsAlive(SeaBeast) and BasePart and (MyRootPartPosition - BasePart.Position).Magnitude < Distance then
+					NewBladeHit(BasePart, SeaBeast)
+				end
+			end
+			
+			for _, Boat in Enemies:GetChildren() do
+				if not Boat:GetAttribute("IsBoat") then continue end
+				local BasePart = Boat:FindFirstChildOfClass("MeshPart")
+				
+				if IsAlive(Boat) and BasePart and (MyRootPartPosition - BasePart.Position).Magnitude < Distance then
+					NewBladeHit(BasePart, Boat)
+				end
+			end
+		end
+		
+		local function ConvertToGunHits()
+			local Target, Hitbox;
+			
+			for index = 1, #CurrentBladeHits do
+				local Enemy = CurrentBladeHits[index][1]
+				
+				if not Target or Enemy.Parent == SeaBeasts or Target.Parent ~= SeaBeasts and Enemy:GetAttribute("IsBoat") then
+					Hitbox, Target = CurrentBladeHits[index][2], Enemy;
+				end
+			end
+			
+			CurrentBladeHits = { Hitbox, math.random() }
+			return Hitbox.Position, Target;
+		end
+		
 		local function ProcessHits(List: Folder, Distance: number): (nil)
 			local MyCharacter = Player.Character;
 			local Targets = List:GetChildren();
@@ -1631,7 +1674,7 @@ local Module = {} do
 			end
 		end
 		
-		function FastAttack:UpdateBladeHits(Distance: number?, Anything: boolean?): (nil)
+		function FastAttack:UpdateBladeHits(Distance: number?, Anything: boolean?, SeasEvents: boolean?): (nil)
 			Distance = Distance or self.Distance;
 			CurrentBladeHits = {};
 			
@@ -1640,6 +1683,9 @@ local Module = {} do
 			end
 			if Anything or self.attackPlayers then
 				ProcessHits(Characters, Distance)
+			end
+			if SeasEvents then
+				ProcessSeaEventsHits(Distance)
 			end
 		end
 		
@@ -1692,19 +1738,6 @@ local Module = {} do
 			return Closest
 		end
 		
-		function FastAttack:GetGunHits(Character: Character, Distance: number?)
-			local BladeHits = self:GetAllBladeHits(Character, Distance, true)
-			local GunHits = {}
-			
-			for i = 1, #BladeHits do
-				if not GunHits[1] or (BladeHits[i][2].Position - GunHits[1].Position).Magnitude <= 10 then
-					table.insert(GunHits, BladeHits[i][2])
-				end
-			end
-			
-			return GunHits
-		end
-		
 		function FastAttack:GetCombo(): number
 			local Combo = if tick() - self.ComboDebounce <= 0.4 then self.M1Combo else 0
 			Combo = if Combo >= 4 then 1 else Combo + 1
@@ -1738,12 +1771,12 @@ local Module = {} do
 				local Overheat = 0;
 				
 				table.insert(BladeHits, { EnemyHitBox.Parent, EnemyHitBox })
-				table.insert(BladeHits, Player)
+				table.insert(BladeHits, math.random())
 				
 				while Overheat <= 0.4 do
 					for i = 1, Times do
-						RE_RegisterAttack:FireServer(Cooldown)
-						task.spawn(HIT_FUNCTION, EnemyHitBox, BladeHits)
+						RE_RegisterAttack:FireServer(self:GetCombo())
+						HIT_FUNCTION(EnemyHitBox, BladeHits)
 					end
 					Overheat += task.wait(if Times > 10 then 0.07 else 0)
 				end
@@ -1811,14 +1844,30 @@ local Module = {} do
 			local ShootType = self.SpecialShoots[Equipped.Name] or "Normal"
 			
 			if ShootType == "Normal" or ShootType == "Overheat" then
+				self:UpdateBladeHits(200, false, true)
+				
+				if #CurrentBladeHits == 0 then
+					return nil
+				end
+				
+				local Position, PrimaryTarget = ConvertToGunHits()
+				
 				if ShootType == "Overheat" then
-					local Data = self.Overheat[Equipped.Name]
+					self.Debounce = tick() + 9e9
 					
-					if Data.Shooting then
+					while PrimaryTarget and IsAlive(PrimaryTarget) and Equipped and Equipped.Parent == Player.Character do
+						GunValidator:FireServer(self:GetValidator2())
+						RE_ShootGunEvent:FireServer(Position, CurrentBladeHits)
+						task.wait()
+					end
+					
+					self.Debounce = 0
+					
+					--[=[if Data.Shooting then
 						return nil
 					end
 					
-					local Target = self:GetClosestEnemy(Data.Distance or 100)
+					local Target = self:GetClosestEnemy(Data.Distance or 150)
 					
 					if Target then
 						Data.Shooting = true
@@ -1839,18 +1888,13 @@ local Module = {} do
 						end
 						
 						Data.Shooting = false
-					end
-				else
-					local Hits = self:GetGunHits(Character, 120)
-					local Target = Hits[1] and Hits[1].Position
+					end]=]
+				elseif PrimaryTarget then
+					Equipped:SetAttribute("LocalTotalShots", (Equipped:GetAttribute("LocalTotalShots") or 0) + 1)
+					GunValidator:FireServer(self:GetValidator2())
 					
-					if Target then
-						Equipped:SetAttribute("LocalTotalShots", (Equipped:GetAttribute("LocalTotalShots") or 0) + 1)
-						GunValidator:FireServer(self:GetValidator2())
-						
-						for i = 1, (self.ShootsPerTarget[Equipped.Name] or 1) do
-							RE_ShootGunEvent:FireServer(Target, Hits)
-						end
+					for i = 1, (self.ShootsPerTarget[Equipped.Name] or 1) do
+						RE_ShootGunEvent:FireServer(Position, CurrentBladeHits)
 					end
 				end
 			elseif ShootType == "Position" or (ShootType == "TAP" and Equipped:FindFirstChild("RemoteEvent")) then
@@ -1905,7 +1949,7 @@ local Module = {} do
 						self:UseFruitM1(Character, Equipped, Combo)
 					end
 				elseif ToolTip == "Gun" then
-					if SUCCESS_SHOOT and SHOOT_FUNCTION and Settings.AutoShoot then
+					if SUCCESS_SHOOT and SHOOT_FUNCTION and (Settings.AutoShoot or Settings.dStormSea) then
 						self:UseGunShoot(Character, Equipped)
 					end
 				else
@@ -2206,8 +2250,6 @@ local Module = {} do
 		function Hooking:SetTarget(RootPart: BasePart): (nil)
 			ClosestEnemie, DisableUpdateClosest = GetRandomHitboxLimb(RootPart.Parent) or RootPart, tick()
 		end
-		
-		Hooking.EnableBypass = function()end;
 		
 		return Hooking
 	end)()
