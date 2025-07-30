@@ -1008,20 +1008,21 @@ local Module = {} do
 		end
 	end
 	
-	function Module:BringEnemies(ToEnemy: Instance, SuperBring: boolean?, CustomCFrame: CFrame): (nil)
+	function Module:BringEnemies(ToEnemy: Instance, SuperBring: boolean?, CustomCFrame: CFrame?, Distance: number?): (nil)
 		if not IsAlive(ToEnemy) or not ToEnemy.PrimaryPart then
 			return nil
 		end
 		
 		pcall(sethiddenproperty, Player, "SimulationRadius", math.huge)
 		
-		if Settings.BringMobs then
+		if Distance or Settings.BringMobs then
 			Module.IsSuperBring = if SuperBring then true else false
 			
 			local Name = ToEnemy.Name
 			local Position = (Player.Character or Player.CharacterAdded:Wait()):GetPivot().Position
 			local BringPositionTag = if SuperBring then "ALL_MOBS" else Name
 			local Target = CustomCFrame or ToEnemy.PrimaryPart.CFrame
+			local MaxDistance = Distance or Settings.BringDistance
 			
 			if not Cached.Bring[BringPositionTag] or (Target.Position - Cached.Bring[BringPositionTag].Position).Magnitude > 25 then
 				Cached.Bring[BringPositionTag] = Target
@@ -1037,7 +1038,7 @@ local Module = {} do
 				
 				local PrimaryPart = Enemy.PrimaryPart
 				if IsAlive(Enemy) and PrimaryPart then
-					if (Position - PrimaryPart.Position).Magnitude < Settings.BringDistance then
+					if (Position - PrimaryPart.Position).Magnitude < MaxDistance then
 						Enemy.Humanoid.WalkSpeed = 0
 						Enemy.Humanoid.JumpPower = 0
 						Enemy:AddTag(BRING_TAG)
