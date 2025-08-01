@@ -151,8 +151,12 @@ local HumanoidsCache do
 	HumanoidsCache = setmetatable({}, Metatable)
 end
 
-local function GetHuamnoidHealth(Humanoid)
+local function GetHuamnoidHealth(Humanoid: Humanoid): number
 	return Humanoid[if Humanoid.ClassName == "Humanoid" then "Health" else "Value"]
+end
+
+local function DistanceFromCharacter(Value: CFrame | BasePart): number
+	return Player:DistanceFromCharacter(Value.Position)
 end
 
 local function IsAlive(Character, _Humanoid)
@@ -1597,6 +1601,9 @@ local Module = {} do
 		
 		local CurrentBladeHits = {};
 		local MyRootPartPosition = nil;
+		local NoAttackBelowTool = nil;
+		local NoAttackBelowDebounce = 0;
+		local BelowHealthPercent = 0;
 		
 		local function ExpandsHitBox(Enemies: { table }): (nil)
 			for i = 1, #Enemies do
@@ -1622,6 +1629,13 @@ local Module = {} do
 			table.insert(CurrentBladeHits, { Character, RootPart })
 		end
 		
+		local function GetMaxHits(Character)
+			if Character:FindFirstChild("HumanoidRootPart") and Character.HumanoidRootPart:FindFirstChild("Buddha") then
+				return 10
+			end
+			return 1
+		end
+		
 		local function ProcessSeaEventsHits(Distance)
 			for _, SeaBeast in SeaBeasts:GetChildren() do
 				local BasePart = SeaBeast:FindFirstChildOfClass("MeshPart")
@@ -1641,29 +1655,50 @@ local Module = {} do
 			end
 		end
 		
+		local function CanChangeGunTarget(Target, Enemy)
+			if Enemy.Parent == SeaBeasts then
+				return true
+			elseif Target.Parent ~= SeaBeasts and Enemy:GetAttribute("IsBoat") then
+				return true
+			end
+			
+			return false
+		end
+		
 		local function ConvertToGunHits()
 			local Target, Hitbox;
 			
 			for index = 1, #CurrentBladeHits do
-				local Enemy = CurrentBladeHits[index][1]
+				local Hit = CurrentBladeHits[index]
 				
-				if not Target or Enemy.Parent == SeaBeasts or Target.Parent ~= SeaBeasts and Enemy:GetAttribute("IsBoat") then
-					Hitbox, Target = CurrentBladeHits[index][2], Enemy;
+				if not Target or CanChangeGunTarget(Target, Hit[1]) then
+					Hitbox, Target = Hit[2], Hit[1];
 				end
 			end
 			
 			CurrentBladeHits = { Hitbox, math.random() }
-			return Hitbox.Position, Target;
+			return Hitbox.Position, Hitbox;
 		end
 		
-		local function ProcessHits(List: Folder, Distance: number): (nil)
+		local function ProcessHits(List: Folder, Equipped: Tool, Distance: number): (nil)
 			local MyCharacter = Player.Character;
 			local Targets = List:GetChildren();
+			local MaxHits = GetMaxHits(MyCharacter) + 1;
 			
 			for i = 1, #Targets do
+				if #CurrentBladeHits >= MaxHits then break end
+				
 				local Character = Targets[i]
 				if Character == MyCharacter or Character:GetAttribute("IsBoat") or not IsAlive(Character) then continue end
 				local RootPart = Character.PrimaryPart
+				
+				if (tick() - NoAttackBelowDebounce) <= 1 then
+					local Humanoid = Character.Humanoid
+					
+					if Humanoid.Health / Humanoid.MaxHealth * 100 <= BelowHealthPercent then
+						continue
+					end
+				end
 				
 				if RootPart and (Character.Parent ~= Characters or CheckPlayerAlly(Character)) then
 					local Hitbox = GetRandomHitboxLimb(Character) or RootPart
@@ -1675,18 +1710,29 @@ local Module = {} do
 			end
 		end
 		
+		function FastAttack:DontAttackBelowPercent(Percent: number): boolean
+			if SUCCESS_FLAGS and not COMBAT_REMOTE_THREAD or SUCCESS_FLAGS and COMBAT_REMOTE_THREAD and HIT_FUNCTION then
+				BelowHealthPercent = Percent
+				NoAttackBelowDebounce = tick()
+				
+				return true
+			end
+			
+			return false
+		end
+		
 		function FastAttack:UpdateBladeHits(Distance: number?, Anything: boolean?, SeasEvents: boolean?): (nil)
 			Distance = Distance or self.Distance;
 			CurrentBladeHits = {};
 			
 			if Anything or self.attackMobs then
-				ProcessHits(Enemies, Distance)
+				ProcessHits(Enemies, self.Equipped, Distance)
 			end
 			if Anything or self.attackPlayers then
-				ProcessHits(Characters, Distance)
+				ProcessHits(Characters, self.Equipped, Distance)
 			end
 			if SeasEvents then
-				ProcessSeaEventsHits(Distance)
+				ProcessSeaEventsHits(Distance, self.Equipped)
 			end
 		end
 		
@@ -1845,51 +1891,31 @@ local Module = {} do
 			local ShootType = self.SpecialShoots[Equipped.Name] or "Normal"
 			
 			if ShootType == "Normal" or ShootType == "Overheat" then
-				self:UpdateBladeHits(200, false, true)
+				local Distance = if ShootType == "Overheat" then self.Overheat[Equipped.Name].Distance else 200
+				self:UpdateBladeHits(Distance, false, true)
 				
 				if #CurrentBladeHits == 0 then
 					return nil
 				end
 				
-				local Position, PrimaryTarget = ConvertToGunHits()
+				local Position, PrimaryPart = ConvertToGunHits()
+				local PrimaryTarget = PrimaryPart.Parent
 				
 				if ShootType == "Overheat" then
 					self.Debounce = tick() + 9e9
 					
-					while PrimaryTarget and IsAlive(PrimaryTarget) and Equipped and Equipped.Parent == Player.Character do
+					while PrimaryTarget.Parent and IsAlive(PrimaryTarget) and Equipped and Equipped.Parent == Player.Character do
+						if PrimaryPart.Parent ~= PrimaryTarget or DistanceFromCharacter(PrimaryPart) > Distance then
+							break
+						end
+						
+						Equipped:SetAttribute("LocalTotalShots", (Equipped:GetAttribute("LocalTotalShots") or 0) + 1)
 						GunValidator:FireServer(self:GetValidator2())
 						RE_ShootGunEvent:FireServer(Position, CurrentBladeHits)
 						task.wait()
 					end
 					
 					self.Debounce = 0
-					
-					--[=[if Data.Shooting then
-						return nil
-					end
-					
-					local Target = self:GetClosestEnemy(Data.Distance or 150)
-					
-					if Target then
-						Data.Shooting = true
-						
-						while Equipped and Equipped.Parent == Player.Character and Data.TotalOverheat < Data.MaxOverheat do
-							if Target and Target.Parent and IsAlive(Target.Parent) then
-								Equipped:SetAttribute("LocalTotalShots", (Equipped:GetAttribute("LocalTotalShots") or 0) + 1)
-								GunValidator:FireServer(self:GetValidator2())
-								RE_ShootGunEvent:FireServer(Target.Position, { Target })
-								Data.TotalOverheat += task.wait(Data.Cooldown)
-							else
-								break
-							end
-						end
-						
-						while Data.TotalOverheat > 0 do
-							Data.TotalOverheat = math.clamp(Data.TotalOverheat - task.wait(), 0, Data.MaxOverheat)
-						end
-						
-						Data.Shooting = false
-					end]=]
 				elseif PrimaryTarget then
 					Equipped:SetAttribute("LocalTotalShots", (Equipped:GetAttribute("LocalTotalShots") or 0) + 1)
 					GunValidator:FireServer(self:GetValidator2())
