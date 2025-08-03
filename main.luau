@@ -71,7 +71,7 @@ do
 	local function formatUrl(Url)
 		for key, path in urls do
 			if Url:find("{" .. key .. "}") then
-				return Url:gsub("{" .. key .. "}", path)
+				return select(1, Url:gsub("{" .. key .. "}", path))
 			end
 		end
 		
