@@ -937,6 +937,7 @@ local Module = {} do
 	
 	function Module:ServerHop(MaxPlayers: number?, Region: string?): (nil)
 		self.RejoinBlocked = true -- bloqueia o Auto Rejoin
+		
 		MaxPlayers = math.min(MaxPlayers or self.SH_MaxPlrs or 8, 11)
 		-- Region = Region or self.SH_Region or "Singapore"
 		
@@ -944,18 +945,19 @@ local Module = {} do
 		local InvokeServer = ServerBrowser.InvokeServer; -- armazena a função de "InvokeServer" para otimizar
 		local MyJobId = game.JobId; -- armazena o JobId do server atual, também para otimizar o loop
 		local CurrentPage = 1; -- a "página" atual de servidores ServerBrowser:InvokeServer(1. 2. 3...)
-		local Blocked = false;
 		
-		local function forEachPage(Page)
-			local Success, Servers = pcall(InvokeServer, ServerBrowser, Page) -- retorna a lista de servidores da página atual
-			if not Success then return end
-			if not Servers then Blocked = true return nil end -- se nenhum servidor for encontrado, ele retorna e quebra o loop
+		local function nextPage()
+			local Success, Servers = pcall(InvokeServer, ServerBrowser, CurrentPage) -- retorna a lista de servidores da página atual
+			CurrentPage += 1
+			
+			if Success ~= true then return end
+			if type(Servers) ~= "table" then return end
 			
 			local lowServerCount, lowServerId = MaxPlayers;
 			
 			for id, data in Servers do
 				if id ~= MyJobId and data.Count <= lowServerCount then
-					lowServerCount, lowServerId = data.Count, id
+					lowServerCount, lowServerId = data.Count, id;
 				end
 			end
 			
@@ -964,10 +966,8 @@ local Module = {} do
 			end
 		end
 		
-		while not Blocked and CurrentPage < 150 do
-			task.spawn(forEachPage, CurrentPage)
-			CurrentPage += 1 -- avança para o próximo número da página
-			task.wait()
+		for index = 1, 100 do
+			task.delay(index / 50, nextPage)
 		end
 	end
 	
