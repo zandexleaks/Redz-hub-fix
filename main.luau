@@ -13,7 +13,7 @@ local fetcher, urls = {}, {}
 
 local _ENV = (getgenv or getrenv or getfenv)()
 
-urls.Owner = "https://raw.githubusercontent.com/tlredz/";
+urls.Owner = "https://raw.githubusercontent.com/zandexleaks/";
 urls.Repository = urls.Owner .. "Scripts/refs/heads/main/";
 urls.Translator = urls.Repository .. "Translator/";
 urls.Utils = urls.Repository .. "Utils/";
